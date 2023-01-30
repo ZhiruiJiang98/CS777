@@ -15,7 +15,9 @@ from pyspark.sql.types import *
 from pyspark.sql import functions as func
 from pyspark.sql.functions import *
 
-
+# spark = SparkSession.builder.master("local[*]").getOrCreate()
+# sc = SparkContext.getOrCreate()
+# sqlContext = SQLContext(sc)
 #Exception Handling and removing wrong datalines
 def isfloat(value):
     try:
@@ -36,35 +38,41 @@ def correctRows(p):
             if(float(p[4])> 60 and float(p[5])>0 and float(p[11])> 0 and float(p[16])> 0):
                 return p
 
+
 #Main
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: main_task1 <file> <output> ", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print("Usage: main_task2 <file> <output> ", file=sys.stderr)
         exit(-1)
     
-    sc = SparkContext(appName="Assignment-1")
     
-    rdd = sc.textFile(sys.argv[1])
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    sc = SparkContext.getOrCreate()
 
+    # Read the data in Spark DataFrame
+    
     #Task 1
     #Your code goes here
 
-    results_1.coalesce(1).saveAsTextFile(sys.argv[2])
+    data = spark.read.csv(sys.argv[1])
+    testRDD = data.rdd.map(tuple)
+    taxilinesCorrected = testRDD.filter(correctRows)
+
+
+
+    taxiMap = taxilinesCorrected.map(lambda x: (x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15], x[16]))
 
 
     #Task 2
     #Your code goes here
-
-
+    
+    driverAvgMoney = taxiMap.map(lambda idx: (idx[1],(((float(idx[16]))/(float(idx[4]))*60),1))).reduceByKey(lambda x,y: (x[0]+y[0], x[1]+y[1])).map(lambda x: (x[0], x[1][0]/x[1][1]))
+    avgTop = driverAvgMoney.top(10, lambda x:x[1])
+    topRDD = spark.sparkContext.parallelize(avgTop)
+    results_2 = topRDD
     #savings output to argument
-    results_2.coalesce(1).saveAsTextFile(sys.argv[3])
+    results_2.coalesce(1).saveAsTextFile(sys.argv[2])
 
-
-    #Task 3 - Optional 
-    #Your code goes here
-
-    #Task 4 - Optional 
-    #Your code goes here
 
 
     sc.stop()
